@@ -143,8 +143,8 @@ const AssetManagementPage = () => {
           {/* Maintenance & Status */}
           <SectionHeader icon="🔧" title="MAINTENANCE & STATUS" />
           <div style={grid.two}>
-            <Field label="Asset Location"><Input placeholder="" value={form.assetStatus} onChange={set("assetStatus")} /></Field>
-            <Field label="Asset Location"><Input placeholder="" value={form.lastMaintenance} onChange={set("lastMaintenance")} /></Field>
+            <Field label="Previous Maintenance Date"><Input placeholder="" value={form.assetStatus} onChange={set("assetStatus")} /></Field>
+            <Field label="Asset Status"><Input placeholder="" value={form.lastMaintenance} onChange={set("lastMaintenance")} /></Field>
           </div>
           <div style={{ marginTop: "16px" }}>
             <Field label="Maintenance Description">
