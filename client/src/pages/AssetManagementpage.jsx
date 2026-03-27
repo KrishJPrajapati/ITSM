@@ -1,5 +1,26 @@
 import React, { useState } from "react";
 
+/* ─────────────────────────── Simple Toast ─────────────────────────── */
+const Toast = ({ type, message, onClose }) => {
+  if (!message) return null;
+  const isSuccess = type === "success";
+  return (
+    <div style={{
+      position: "fixed", top: 24, right: 24, zIndex: 9999,
+      display: "flex", alignItems: "center", gap: 12,
+      background: isSuccess ? "#22c55e" : "#ef4444",
+      color: "#fff", borderRadius: 12, padding: "14px 20px",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 280, maxWidth: 380,
+      animation: "slideIn 0.25s ease",
+    }}>
+      <span style={{ fontSize: 22 }}>{isSuccess ? "✅" : "❌"}</span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{message}</span>
+      <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+      <style>{`@keyframes slideIn { from { opacity:0; transform:translateY(-12px);} to { opacity:1; transform:translateY(0);} }`}</style>
+    </div>
+  );
+};
+
 /* ─────────────────────────── helpers ─────────────────────────── */
 const Field = ({ label, required, children }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -31,16 +52,17 @@ const SectionHeader = ({ icon, title }) => (
 
 /* ─────────────────────────── initial assets ─────────────────────────── */
 const initialAssets = [
-  { id: "AST-120", name: "Dell Latitude 5420", type: "Laptop", location: "Floor 1, Q/A", user: "Parth, Engineer", maintenance: "7 Jan 2024", status: "In Use" },
-  { id: "AST-1587", name: "Konica Minolta", type: "Printer", location: "Admin Office", user: "Admin Department / IT", maintenance: "25 Feb 2022", status: "In Use" },
-  { id: "AST-965", name: "HP Proliant DL380", type: "Laptop", location: "HR Office", user: "HR", maintenance: "2 Dec 2025", status: "Maintenance" },
-  { id: "AST-741", name: "Cisco Catalyst 9200", type: "Router / Switch", location: "Dispatch", user: "IT", maintenance: "31 Jun 2024", status: "Retired" },
+  { id: "AST-120",  name: "Dell Latitude 5420",   type: "Laptop",         location: "Floor 1, Q/A",  user: "Parth, Engineer",       maintenance: "7 Jan 2024",  status: "In Use" },
+  { id: "AST-1587", name: "Konica Minolta",        type: "Printer",        location: "Admin Office",  user: "Admin Department / IT", maintenance: "25 Feb 2022", status: "In Use" },
+  { id: "AST-965",  name: "HP Proliant DL380",     type: "Laptop",         location: "HR Office",     user: "HR",                    maintenance: "2 Dec 2025",  status: "Maintenance" },
+  { id: "AST-741",  name: "Cisco Catalyst 9200",   type: "Router / Switch",location: "Dispatch",      user: "IT",                    maintenance: "31 Jun 2024", status: "Retired" },
 ];
 
 /* ─────────────────────────── main page ─────────────────────────── */
 const AssetManagementPage = () => {
   const [assets, setAssets] = useState(initialAssets);
-  const [search, setSearch] = useState("");
+  const [search, setSearch]   = useState("");
+  const [toast, setToast]     = useState({ type: "", message: "" });
   const [form, setForm] = useState({
     assetId: "", assetName: "", assetType: "", brand: "",
     modelNumber: "", serialNumber: "", ipAddress: "", macAddress: "",
@@ -50,17 +72,26 @@ const AssetManagementPage = () => {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast({ type: "", message: "" }), 4000);
+  };
+
   const handleReset = () =>
     setForm({ assetId: "", assetName: "", assetType: "", brand: "", modelNumber: "", serialNumber: "", ipAddress: "", macAddress: "", purchaseDate: "", warrantyExpiry: "", location: "", assignedUser: "", assetStatus: "", lastMaintenance: "", maintenanceDesc: "" });
 
   const handleAdd = () => {
-    if (!form.assetId || !form.assetName) return alert("Asset ID and Name are required.");
+    if (!form.assetId.trim()) { showToast("error", 'Please fill in "Asset ID" before adding.'); return; }
+    if (!form.assetName.trim()) { showToast("error", 'Please fill in "Asset Name" before adding.'); return; }
+    if (!form.assetType.trim()) { showToast("error", 'Please fill in "Asset Type" before adding.'); return; }
+
     setAssets((prev) => [...prev, {
       id: form.assetId, name: form.assetName, type: form.assetType,
       location: form.location, user: form.assignedUser,
       maintenance: form.lastMaintenance, status: form.assetStatus || "In Use",
     }]);
     handleReset();
+    showToast("success", `Asset "${form.assetName}" added successfully! 🎉`);
   };
 
   const filtered = assets.filter((a) =>
@@ -69,30 +100,39 @@ const AssetManagementPage = () => {
     )
   );
 
-  const inUse = assets.filter((a) => a.status === "In Use").length;
+  const inUse       = assets.filter((a) => a.status === "In Use").length;
   const maintenance = assets.filter((a) => a.status === "Maintenance").length;
-  const retired = assets.filter((a) => a.status === "Retired").length;
+  const retired     = assets.filter((a) => a.status === "Retired").length;
 
   const statusColor = (s) => ({
-    "In Use": { background: "#eef0ff", color: "#4b4f9c" },
+    "In Use":      { background: "#eef0ff", color: "#4b4f9c" },
     "Maintenance": { background: "#fff4e5", color: "#b36b00" },
-    "Retired": { background: "#fdeaea", color: "#c0392b" },
+    "Retired":     { background: "#fdeaea", color: "#c0392b" },
   }[s] || { background: "#eee", color: "#555" });
 
   return (
     <div style={page.wrapper}>
-      {/* ── Top Bar ── */}
+      {/* Toast */}
+      <Toast type={toast.type} message={toast.message} onClose={() => setToast({ type: "", message: "" })} />
+
+      {/* ── Page Header ── */}
+      <div style={page.headerBlock}>
+       
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+          <span style={{ fontSize: "32px", lineHeight: 1 }}>🗂️</span>
+          <h1 style={page.title}>Asset Management</h1>
+        </div>
+        <p style={page.sub}>Track, register, and manage all IT assets across your infrastructure.</p>
+      </div>
+
+      {/* ── Status Badge Bar ── */}
       <div style={page.topBar}>
-        <span style={page.topTitle}>Asset Management</span>
         <div style={{ display: "flex", gap: "8px" }}>
-          {[`${inUse} in use`, `${maintenance} Maintenance`, `${retired} Retired`].map((t) => (
+          {[`${inUse} In Use`, `${maintenance} Maintenance`, `${retired} Retired`].map((t) => (
             <span key={t} style={page.badge}>{t}</span>
           ))}
         </div>
       </div>
-
-      {/* ── Page Title ── */}
-      <h1 style={page.title}>Asset Management</h1>
 
       {/* ── Register Card ── */}
       <div style={page.card}>
@@ -111,7 +151,7 @@ const AssetManagementPage = () => {
           {/* Asset Identification */}
           <SectionHeader icon="#" title="ASSET IDENTIFICATION" />
           <div style={grid.two}>
-            <Field label="Asset ID"><Input placeholder="" value={form.assetId} onChange={set("assetId")} /></Field>
+            <Field label="Asset ID" required><Input placeholder="" value={form.assetId} onChange={set("assetId")} /></Field>
             <Field label="Asset Name" required><Input placeholder="" value={form.assetName} onChange={set("assetName")} /></Field>
             <Field label="Asset Type" required><Input placeholder="" value={form.assetType} onChange={set("assetType")} /></Field>
             <Field label="Brand"><Input placeholder="" value={form.brand} onChange={set("brand")} /></Field>
@@ -134,7 +174,7 @@ const AssetManagementPage = () => {
           </div>
 
           {/* Location & Assignment */}
-          <SectionHeader icon="📍" title="LOCATION % ASSIGNMENT" />
+          <SectionHeader icon="📍" title="LOCATION & ASSIGNMENT" />
           <div style={grid.two}>
             <Field label="Asset Location"><Input placeholder="" value={form.location} onChange={set("location")} /></Field>
             <Field label="Assigned User / Department"><Input placeholder="" value={form.assignedUser} onChange={set("assignedUser")} /></Field>
@@ -168,7 +208,6 @@ const AssetManagementPage = () => {
 
       {/* ── Asset Registry ── */}
       <div style={{ marginTop: "32px" }}>
-        {/* Registry Header */}
         <div style={registry.header}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span style={{ fontSize: "22px" }}>📋</span>
@@ -186,12 +225,11 @@ const AssetManagementPage = () => {
           </div>
         </div>
 
-        {/* Table */}
         <div style={registry.tableCard}>
           <table style={registry.table}>
             <thead>
               <tr style={registry.theadRow}>
-                {["Asset ID", "Asset Name", "Type", "Location", "Assigned User", "Last Maintence", "Status"].map((h) => (
+                {["Asset ID", "Asset Name", "Type", "Location", "Assigned User", "Last Maintenance", "Status"].map((h) => (
                   <th key={h} style={registry.th}>{h}</th>
                 ))}
               </tr>
@@ -229,45 +267,21 @@ export default AssetManagementPage;
 /* ─────────────────────────── styles ─────────────────────────── */
 const page = {
   wrapper: { fontFamily: "'Segoe UI', sans-serif", color: "#1e2140" },
-  topBar: {
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    marginBottom: "16px",
-  },
-  topTitle: { fontSize: "15px", fontWeight: 600, color: "#4b4f9c" },
-  badge: {
-    padding: "4px 12px", borderRadius: "20px", border: "1px solid #d0d4f0",
-    fontSize: "12px", color: "#555", background: "#fff",
-  },
-  title: { fontSize: "26px", fontWeight: 700, margin: "0 0 20px", color: "#1e2140" },
-  card: {
-    background: "#fff", borderRadius: "16px",
-    boxShadow: "0 4px 24px rgba(106,124,255,0.08)",
-    border: "1px solid #eef0fb", overflow: "hidden",
-  },
-  actions: {
-    display: "flex", justifyContent: "flex-end", gap: "12px",
-    padding: "16px 24px", borderTop: "1px solid #eef0fb", background: "#fafbff",
-  },
-  resetBtn: {
-    padding: "10px 22px", borderRadius: "8px", border: "1px solid #d0d4f0",
-    background: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 500, color: "#555",
-  },
-  addBtn: {
-    padding: "10px 22px", borderRadius: "8px", border: "none",
-    background: "#4b4f9c", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 600,
-  },
+  headerBlock: { marginBottom: "20px", textAlign: "left", background: "#fff", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #e8eaf5" },
+  platformLabel: { margin: "0 0 8px", fontSize: "11px", fontWeight: 700, color: "#4b4f9c", letterSpacing: "1px", textTransform: "uppercase" },
+  title: { margin: 0, fontSize: "28px", fontWeight: 800, color: "#1e2140" },
+  sub: { margin: "6px 0 0", fontSize: "13px", color: "#888" },
+  topBar: { display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "16px" },
+  badge: { padding: "4px 12px", borderRadius: "20px", border: "1px solid #d0d4f0", fontSize: "12px", color: "#555", background: "#fff" },
+  card: { background: "#fff", borderRadius: "16px", boxShadow: "0 4px 24px rgba(106,124,255,0.08)", border: "1px solid #eef0fb", overflow: "hidden" },
+  actions: { display: "flex", justifyContent: "flex-end", gap: "12px", padding: "16px 24px", borderTop: "1px solid #eef0fb", background: "#fafbff" },
+  resetBtn: { padding: "10px 22px", borderRadius: "8px", border: "1px solid #d0d4f0", background: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 500, color: "#555" },
+  addBtn: { padding: "10px 22px", borderRadius: "8px", border: "none", background: "#4b4f9c", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: 600 },
 };
 
 const cardHeader = {
-  wrapper: {
-    display: "flex", alignItems: "center", gap: "14px",
-    padding: "20px 24px 16px", borderBottom: "1px solid #eef0fb",
-  },
-  iconBox: {
-    width: "44px", height: "44px", borderRadius: "10px",
-    background: "#eef0ff", display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
-  },
+  wrapper: { display: "flex", alignItems: "center", gap: "14px", padding: "20px 24px 16px", borderBottom: "1px solid #eef0fb" },
+  iconBox: { width: "44px", height: "44px", borderRadius: "10px", background: "#eef0ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   title: { fontSize: "15px", fontWeight: 700, color: "#1e2140" },
   sub: { fontSize: "12px", color: "#888", marginTop: "2px" },
 };
@@ -282,65 +296,23 @@ const sectionStyles = {
 
 const fieldStyles = {
   label: { fontSize: "12px", fontWeight: 500, color: "#555" },
-  input: {
-    padding: "9px 12px", borderRadius: "8px", border: "1px solid #dde0f5",
-    fontSize: "13px", outline: "none", background: "#f0f1fb",
-    color: "#1e2140", width: "100%", boxSizing: "border-box",
-    transition: "border-color 0.2s",
-  },
-  textarea: {
-    padding: "10px 12px", borderRadius: "8px", border: "1px solid #dde0f5",
-    fontSize: "13px", outline: "none", background: "#f0f1fb",
-    color: "#1e2140", width: "100%", boxSizing: "border-box",
-    minHeight: "100px", resize: "vertical", transition: "border-color 0.2s",
-  },
+  input: { padding: "9px 12px", borderRadius: "8px", border: "1px solid #dde0f5", fontSize: "13px", outline: "none", background: "#f0f1fb", color: "#1e2140", width: "100%", boxSizing: "border-box", transition: "border-color 0.2s" },
+  textarea: { padding: "10px 12px", borderRadius: "8px", border: "1px solid #dde0f5", fontSize: "13px", outline: "none", background: "#f0f1fb", color: "#1e2140", width: "100%", boxSizing: "border-box", minHeight: "100px", resize: "vertical", transition: "border-color 0.2s" },
 };
 
-const grid = {
-  two: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
-};
+const grid = { two: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" } };
 
 const registry = {
-  header: {
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    marginBottom: "16px",
-  },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" },
   title: { fontSize: "20px", fontWeight: 700, color: "#1e2140" },
-  countBadge: {
-    padding: "3px 12px", borderRadius: "20px", border: "1px solid #d0d4f0",
-    fontSize: "12px", color: "#555", background: "#fff",
-  },
-  searchWrapper: {
-    display: "flex", alignItems: "center", gap: "8px",
-    padding: "9px 16px", borderRadius: "8px", border: "1px solid #dde0f5",
-    background: "#fff", minWidth: "220px",
-  },
-  searchInput: {
-    border: "none", outline: "none", fontSize: "13px",
-    color: "#333", background: "transparent", width: "100%",
-  },
-  tableCard: {
-    background: "#fff", borderRadius: "12px",
-    border: "1px solid #eef0fb", overflow: "hidden",
-    boxShadow: "0 2px 12px rgba(106,124,255,0.06)",
-  },
+  countBadge: { padding: "3px 12px", borderRadius: "20px", border: "1px solid #d0d4f0", fontSize: "12px", color: "#555", background: "#fff" },
+  searchWrapper: { display: "flex", alignItems: "center", gap: "8px", padding: "9px 16px", borderRadius: "8px", border: "1px solid #dde0f5", background: "#fff", minWidth: "220px" },
+  searchInput: { border: "none", outline: "none", fontSize: "13px", color: "#333", background: "transparent", width: "100%" },
+  tableCard: { background: "#fff", borderRadius: "12px", border: "1px solid #eef0fb", overflow: "hidden", boxShadow: "0 2px 12px rgba(106,124,255,0.06)" },
   table: { width: "100%", borderCollapse: "collapse" },
   theadRow: { borderBottom: "1px solid #eef0fb", background: "#fafbff" },
-  th: {
-    padding: "12px 16px", textAlign: "left",
-    fontSize: "13px", fontWeight: 600, color: "#444",
-  },
-  td: {
-    padding: "14px 16px", fontSize: "13px", color: "#333",
-    borderBottom: "1px solid #f0f1fb", verticalAlign: "middle",
-  },
-  statusBadge: {
-    padding: "3px 10px", borderRadius: "20px",
-    fontSize: "11px", fontWeight: 600,
-  },
-  footer: {
-    display: "flex", justifyContent: "space-between",
-    padding: "12px 16px", fontSize: "12px", color: "#888",
-    borderTop: "1px solid #eef0fb", background: "#fafbff",
-  },
+  th: { padding: "12px 16px", textAlign: "left", fontSize: "13px", fontWeight: 600, color: "#444" },
+  td: { padding: "14px 16px", fontSize: "13px", color: "#333", borderBottom: "1px solid #f0f1fb", verticalAlign: "middle" },
+  statusBadge: { padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600 },
+  footer: { display: "flex", justifyContent: "space-between", padding: "12px 16px", fontSize: "12px", color: "#888", borderTop: "1px solid #eef0fb", background: "#fafbff" },
 };

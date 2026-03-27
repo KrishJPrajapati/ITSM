@@ -1,5 +1,10 @@
 import React, { useState } from "react";
 
+const emptyForm = {
+  clientName: "", clientInitials: "", dept: "", asset: "",
+  summary: "", detail: "", priority: "Medium", status: "Open",
+};
+
 /* ─────────────────────────── sample data ─────────────────────────── */
 const allLogs = [
   { id: "TKT-2024-0891", clientInitials: "RK", clientName: "Rajesh Kumar", dept: "Engineering", asset: "PC-IT-042", summary: "VPN Connection Failed", detail: "SSL handshake error repeatedly ...", priority: "High", status: "Resolved", opened: "Feb 20, 2024 at 14:35" },
@@ -30,6 +35,7 @@ const avatarColors = ["#9fa3ff", "#f4a261", "#2a9d8f", "#e76f51", "#8ecae6", "#a
 
 /* ─────────────────────────── main page ─────────────────────────── */
 const RemoteTroubleshootingLogsPage = () => {
+  const [logs, setLogs] = useState(allLogs);
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("All Priorities");
   const [status, setStatus] = useState("All Status");
@@ -37,6 +43,55 @@ const RemoteTroubleshootingLogsPage = () => {
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState(allLogs[0]);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState("");
+
+  /* ── Export CSV ── */
+  const handleExportCSV = () => {
+    const headers = ["Ticket ID", "Client Name", "Department", "Asset", "Summary", "Detail", "Priority", "Status", "Opened"];
+    const rows = filtered.map((l) => [
+      l.id, l.clientName, l.dept, l.asset,
+      `"${l.summary}"`, `"${l.detail}"`,
+      l.priority, l.status, l.opened,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `troubleshooting_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ── New Log form submit ── */
+  const handleNewLogSubmit = () => {
+    if (!form.clientName.trim() || !form.asset.trim() || !form.summary.trim()) {
+      setFormError("Client Name, Asset ID, and Issue Summary are required.");
+      return;
+    }
+    const initials = form.clientName.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+    const newLog = {
+      id: `TKT-${new Date().getFullYear()}-${String(logs.length + 1).padStart(4, "0")}`,
+      clientInitials: initials,
+      clientName: form.clientName.trim(),
+      dept: form.dept.trim() || "—",
+      asset: form.asset.trim(),
+      summary: form.summary.trim(),
+      detail: form.detail.trim() || "—",
+      priority: form.priority,
+      status: form.status,
+      opened: new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+    };
+    setLogs([newLog, ...logs]);
+    setSelectedLog(newLog);
+    setDrawerOpen(true);
+    setShowModal(false);
+    setForm(emptyForm);
+    setFormError("");
+    setPage(1);
+  };
 
   const handleDownload = (log) => {
     if (!log) return;
@@ -73,7 +128,7 @@ const RemoteTroubleshootingLogsPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  const filtered = allLogs.filter((l) => {
+  const filtered = logs.filter((l) => {
     const matchSearch =
       !search ||
       l.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,26 +143,29 @@ const RemoteTroubleshootingLogsPage = () => {
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const stats = [
-    { icon: "≡", label: "TOTAL LOGS", value: allLogs.length, color: "#6a7cff" },
-    { icon: "⊙", label: "OPEN ISSUES", value: allLogs.filter((l) => l.status === "Open").length, color: "#e67e22" },
-    { icon: "↗", label: "IN PROGRESS", value: allLogs.filter((l) => l.status === "In Progress").length, color: "#6a7cff" },
-    { icon: "✓", label: "RESOLVED", value: allLogs.filter((l) => l.status === "Resolved").length, color: "#27ae60" },
+    { icon: "≡", label: "TOTAL LOGS", value: logs.length, color: "#6a7cff" },
+    { icon: "⊙", label: "OPEN ISSUES", value: logs.filter((l) => l.status === "Open").length, color: "#e67e22" },
+    { icon: "↗", label: "IN PROGRESS", value: logs.filter((l) => l.status === "In Progress").length, color: "#6a7cff" },
+    { icon: "✓", label: "RESOLVED", value: logs.filter((l) => l.status === "Resolved").length, color: "#27ae60" },
   ];
 
   return (
     <div style={pg.wrapper}>
-      {/* ── Header ── */}
-      <div style={pg.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={pg.headerIcon}>📋</div>
-          <div>
-            <h1 style={pg.title}>Remote Troubleshooting Logs</h1>
-            <p style={pg.sub}>Search, filter, and analyze incident reports</p>
+      {/* ── Header Box ── */}
+      <div style={pg.headerBox}>
+        <div style={pg.header}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={pg.headerIcon}>📋</div>
+            <div>
+              
+              <h1 style={pg.title}>Remote Troubleshooting Logs</h1>
+              <p style={pg.sub}>Search, filter, and analyze incident reports</p>
+            </div>
           </div>
-        </div>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button style={btn.outline}>⬇ Export CSV</button>
-          <button style={btn.primary}>+ New Log</button>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button style={btn.outline} onClick={handleExportCSV}>⬇ Export CSV</button>
+            <button style={btn.primary} onClick={() => { setForm(emptyForm); setFormError(""); setShowModal(true); }}>+ New Log</button>
+          </div>
         </div>
       </div>
 
@@ -296,6 +354,55 @@ const RemoteTroubleshootingLogsPage = () => {
           </div>
         )}
       </div>
+      {/* ── New Log Modal ── */}
+      {showModal && (
+        <div style={modal.overlay} onClick={() => setShowModal(false)}>
+          <div style={modal.box} onClick={(e) => e.stopPropagation()}>
+            <div style={modal.header}>
+              <span style={modal.title}>+ New Log</span>
+              <button style={drawer.closeBtn} onClick={() => setShowModal(false)}>✕</button>
+            </div>
+            <div style={modal.body}>
+              {[
+                { label: "Client Name *", key: "clientName", placeholder: "e.g. Anjali Mehta" },
+                { label: "Department", key: "dept", placeholder: "e.g. Finance" },
+                { label: "Asset ID *", key: "asset", placeholder: "e.g. LT-HP-221" },
+                { label: "Issue Summary *", key: "summary", placeholder: "Brief title of the issue" },
+                { label: "Detail", key: "detail", placeholder: "More details (optional)" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key} style={modal.field}>
+                  <label style={modal.label}>{label}</label>
+                  <input
+                    style={modal.input}
+                    placeholder={placeholder}
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  />
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: "12px" }}>
+                <div style={{ ...modal.field, flex: 1 }}>
+                  <label style={modal.label}>Priority</label>
+                  <select style={modal.input} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
+                    {["High", "Medium", "Low"].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ ...modal.field, flex: 1 }}>
+                  <label style={modal.label}>Status</label>
+                  <select style={modal.input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    {["Open", "In Progress", "Resolved"].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              {formError && <p style={modal.error}>{formError}</p>}
+            </div>
+            <div style={modal.footer}>
+              <button style={btn.outlineSm} onClick={() => setShowModal(false)}>Cancel</button>
+              <button style={btn.primarySm} onClick={handleNewLogSubmit}>Create Log</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -305,8 +412,10 @@ export default RemoteTroubleshootingLogsPage;
 /* ─────────────────────────── styles ─────────────────────────── */
 const pg = {
   wrapper: { fontFamily: "'Segoe UI', sans-serif", color: "#1e2140" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" },
+  headerBox: { background: "#fff", borderRadius: 14, padding: "20px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #e8eaf5", marginBottom: "20px" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   headerIcon: { width: "44px", height: "44px", borderRadius: "10px", background: "#eef0ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 },
+  platformLabel: { margin: "0 0 4px", fontSize: 11, fontWeight: 700, color: "#4b4f9c", letterSpacing: "1.2px", textTransform: "uppercase" },
   title: { margin: 0, fontSize: "20px", fontWeight: 700, color: "#1e2140" },
   sub: { margin: "4px 0 0", fontSize: "12px", color: "#888" },
 
@@ -375,4 +484,16 @@ const drawer = {
   value: { fontSize: "13px", fontWeight: 600, color: "#1e2140" },
   detail: { fontSize: "11px", color: "#888", marginTop: "4px" },
   footer: { display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" },
+};
+const modal = {
+  overlay: { position: "fixed", inset: 0, background: "rgba(30,33,64,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
+  box: { background: "#fff", borderRadius: "14px", width: "460px", maxWidth: "95vw", boxShadow: "0 8px 40px rgba(30,33,64,0.18)", display: "flex", flexDirection: "column" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 22px 14px", borderBottom: "1px solid #eef0fb" },
+  title: { fontSize: "15px", fontWeight: 700, color: "#1e2140" },
+  body: { padding: "18px 22px", display: "flex", flexDirection: "column", gap: "12px" },
+  field: { display: "flex", flexDirection: "column", gap: "4px" },
+  label: { fontSize: "11px", fontWeight: 700, color: "#888", letterSpacing: "0.4px", textTransform: "uppercase" },
+  input: { padding: "9px 12px", borderRadius: "8px", border: "1px solid #dde0f5", fontSize: "13px", color: "#333", outline: "none", background: "#fafbff" },
+  footer: { display: "flex", gap: "10px", justifyContent: "flex-end", padding: "14px 22px 18px", borderTop: "1px solid #eef0fb" },
+  error: { fontSize: "12px", color: "#c0392b", margin: 0 },
 };

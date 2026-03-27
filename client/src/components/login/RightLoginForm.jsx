@@ -78,15 +78,15 @@ const RightLoginForm = () => {
   const [password, setPassword] = useState("");
 
   const handleLogin = (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // simple demo validation
-    if (username.trim() && password.trim()) {
-      navigate("/ticket"); // redirect after login
-    } else {
-      alert("Please enter username and password");
-    }
-  };
+  if (username.trim() && password.trim()) {
+    localStorage.setItem("isLoggedIn", "true"); // ✅ Save login state
+    navigate("/ticket");
+  } else {
+    alert("Please enter username and password");
+  }
+};
 
   return (
     <form style={styles.card} onSubmit={handleLogin}>

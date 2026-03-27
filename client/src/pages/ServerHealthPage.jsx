@@ -373,16 +373,18 @@ const ServerHealthPage = () => {
   const pcOffline   = pcData.filter(p => p.status === "Offline").length;
 
   return (
-    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f8fafc", minHeight: "100vh", padding: "32px 36px", boxSizing: "border-box" }}>
+    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f8fafc", minHeight: "100vh", padding: 0, boxSizing: "border-box" }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#6f74c9", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>ITSM PLATFORM</div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#0f172a" }}>🖥️ Server & PC Health Monitoring</h1>
-          <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 14 }}>Real-time performance, uptime, and alerts across all infrastructure.</p>
+      {/* ── Header Box ── */}
+      <div style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #e8eaf5", marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+           
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#0f172a" }}>🖥️ Server & PC Health Monitoring</h1>
+            <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>Real-time performance, uptime, and alerts across all infrastructure.</p>
+          </div>
+          <TimeFilter active={timeFilter} setActive={(t) => { setTimeFilter(t); setSelectedServer(null); setSelectedPC(null); }} />
         </div>
-        <TimeFilter active={timeFilter} setActive={(t) => { setTimeFilter(t); setSelectedServer(null); setSelectedPC(null); }} />
       </div>
 
       {/* Period banner */}
