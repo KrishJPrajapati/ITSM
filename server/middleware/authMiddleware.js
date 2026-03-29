@@ -27,3 +27,27 @@ export const superAdminOnly = (req, res, next) => {
     res.status(403).json({ message: 'Access denied. Super Admin only.' });
   }
 };
+
+export const clientHodOrManagerOnly = (req, res, next) => {
+  if (
+    req.user &&
+    req.user.role === 'clientEmployee' &&
+    (req.user.designation === 'HOD' || req.user.designation === 'Manager')
+  ) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied. Only HOD or Manager can add clients.' });
+  }
+};
+
+export const hrOrHodOnly = (req, res, next) => {
+  if (
+    req.user &&
+    req.user.role === 'employee' &&
+    ['HR', 'HR Manager', 'HOD'].includes(req.user.designation)
+  ) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied. Only HR, HR Manager, or HOD can create IT employees.' });
+  }
+};

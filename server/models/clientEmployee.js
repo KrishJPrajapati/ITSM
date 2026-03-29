@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 
-const clientSchema = new mongoose.Schema({
+const clientEmployeeSchema = new mongoose.Schema({
+  
   firstName: { type: String, required: true },
+  
   lastName: { type: String, required: true },
 
   phoneNumber: { type: String }, 
@@ -17,13 +19,36 @@ const clientSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  
+  companyName: String,
 
   officeName: String,
+  
   city: String,
+  
   state: String,
+  
   designation: String,
 
-  c_id: { type: String, unique: true }
+  role:{
+    type:String,
+    default:"clientEmployee"
+  },
+
+  department:{
+    type:String,
+    required: true,
+  },
+
+  headName: String,
+  
+  DOB: {
+    type:Date,
+    required: true
+  },
+
+  client_id: { type: String, unique: true }
+
 }, { timestamps: true });
 
-export default mongoose.model('Client', clientSchema);
+export default mongoose.model('ClientEmployee', clientEmployeeSchema);

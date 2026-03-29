@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 
 const itEmployeeSchema =  mongoose.Schema({
-    firstName: { 
+    
+  firstName: { 
     type: String, 
     required: true, 
     trim: true 
@@ -36,7 +37,27 @@ const itEmployeeSchema =  mongoose.Schema({
   designation: { 
     type: String, 
     default: "IT Support" 
+  },
+
+  role:{
+    type: String,
+    default:"employee"
   }
+,
+  date_joined:{
+    type: Date,
+    required: true
+  },
+
+  DOB:{
+    type: Date,
+    require:true
+  },
+  assigned_at:{
+    type:String,
+    default:"Bharat IT"
+  },
+  phoneNumber: { type: String },
 
 }, { timestamps: true });
 
