@@ -22,6 +22,16 @@ const Toast = ({ type, message, onClose }) => {
 };
 
 /* ─────────────────────────── helpers ─────────────────────────── */
+
+const normalizeStatus = (s) => {
+  if (!s) return "In Use";
+  const low = s.trim().toLowerCase();
+  if (low === "in use")      return "In Use";
+  if (low === "maintenance") return "Maintenance";
+  if (low === "retired")     return "Retired";
+  return "In Use";
+};
+
 const Field = ({ label, required, children }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
     <label style={fieldStyles.label}>
@@ -52,10 +62,10 @@ const SectionHeader = ({ icon, title }) => (
 
 /* ─────────────────────────── initial assets ─────────────────────────── */
 const initialAssets = [
-  { id: "AST-120",  name: "Dell Latitude 5420",   type: "Laptop",         location: "Floor 1, Q/A",  user: "Parth, Engineer",       maintenance: "7 Jan 2024",  status: "In Use" },
-  { id: "AST-1587", name: "Konica Minolta",        type: "Printer",        location: "Admin Office",  user: "Admin Department / IT", maintenance: "25 Feb 2022", status: "In Use" },
-  { id: "AST-965",  name: "HP Proliant DL380",     type: "Laptop",         location: "HR Office",     user: "HR",                    maintenance: "2 Dec 2025",  status: "Maintenance" },
-  { id: "AST-741",  name: "Cisco Catalyst 9200",   type: "Router / Switch",location: "Dispatch",      user: "IT",                    maintenance: "31 Jun 2024", status: "Retired" },
+  { id: "AST-120",  name: "Dell Latitude 5420",   type: "Laptop",         location: "Floor 1, Q/A",  user: "Parth, Engineer",       maintenance: "2024-01-07", status: "In Use" },
+  { id: "AST-1587", name: "Konica Minolta",        type: "Printer",        location: "Admin Office",  user: "Admin Department / IT", maintenance: "2022-02-25", status: "In Use" },
+  { id: "AST-965",  name: "HP Proliant DL380",     type: "Laptop",         location: "HR Office",     user: "HR",                    maintenance: "2025-12-02", status: "Maintenance" },
+  { id: "AST-741",  name: "Cisco Catalyst 9200",   type: "Router / Switch",location: "Dispatch",      user: "IT",                    maintenance: "2024-06-30", status: "Retired" },
 ];
 
 /* ─────────────────────────── main page ─────────────────────────── */
@@ -67,7 +77,7 @@ const AssetManagementPage = () => {
     assetId: "", assetName: "", assetType: "", brand: "",
     modelNumber: "", serialNumber: "", ipAddress: "", macAddress: "",
     purchaseDate: "", warrantyExpiry: "", location: "", assignedUser: "",
-    assetStatus: "", lastMaintenance: "", maintenanceDesc: "",
+    assetStatus: "In Use", lastMaintenance: "", maintenanceDesc: "",
   });
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -78,17 +88,19 @@ const AssetManagementPage = () => {
   };
 
   const handleReset = () =>
-    setForm({ assetId: "", assetName: "", assetType: "", brand: "", modelNumber: "", serialNumber: "", ipAddress: "", macAddress: "", purchaseDate: "", warrantyExpiry: "", location: "", assignedUser: "", assetStatus: "", lastMaintenance: "", maintenanceDesc: "" });
+    setForm({ assetId: "", assetName: "", assetType: "", brand: "", modelNumber: "", serialNumber: "", ipAddress: "", macAddress: "", purchaseDate: "", warrantyExpiry: "", location: "", assignedUser: "", assetStatus: "In Use", lastMaintenance: "", maintenanceDesc: "" });
 
   const handleAdd = () => {
-    if (!form.assetId.trim()) { showToast("error", 'Please fill in "Asset ID" before adding.'); return; }
+    if (!form.assetId.trim())   { showToast("error", 'Please fill in "Asset ID" before adding.');   return; }
     if (!form.assetName.trim()) { showToast("error", 'Please fill in "Asset Name" before adding.'); return; }
     if (!form.assetType.trim()) { showToast("error", 'Please fill in "Asset Type" before adding.'); return; }
+
+    const normalizedStatus = normalizeStatus(form.assetStatus);
 
     setAssets((prev) => [...prev, {
       id: form.assetId, name: form.assetName, type: form.assetType,
       location: form.location, user: form.assignedUser,
-      maintenance: form.lastMaintenance, status: form.assetStatus || "In Use",
+      maintenance: form.lastMaintenance, status: normalizedStatus,
     }]);
     handleReset();
     showToast("success", `Asset "${form.assetName}" added successfully! 🎉`);
@@ -100,15 +112,23 @@ const AssetManagementPage = () => {
     )
   );
 
-  const inUse       = assets.filter((a) => a.status === "In Use").length;
-  const maintenance = assets.filter((a) => a.status === "Maintenance").length;
-  const retired     = assets.filter((a) => a.status === "Retired").length;
+  const inUse       = assets.filter((a) => normalizeStatus(a.status) === "In Use").length;
+  const maintenance = assets.filter((a) => normalizeStatus(a.status) === "Maintenance").length;
+  const retired     = assets.filter((a) => normalizeStatus(a.status) === "Retired").length;
 
   const statusColor = (s) => ({
     "In Use":      { background: "#eef0ff", color: "#4b4f9c" },
     "Maintenance": { background: "#fff4e5", color: "#b36b00" },
     "Retired":     { background: "#fdeaea", color: "#c0392b" },
-  }[s] || { background: "#eee", color: "#555" });
+  }[normalizeStatus(s)] || { background: "#eee", color: "#555" });
+
+  // Format date for display in table (yyyy-mm-dd → dd Mon yyyy)
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
 
   return (
     <div style={page.wrapper}>
@@ -117,7 +137,6 @@ const AssetManagementPage = () => {
 
       {/* ── Page Header ── */}
       <div style={page.headerBlock}>
-       
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
           <span style={{ fontSize: "32px", lineHeight: 1 }}>🗂️</span>
           <h1 style={page.title}>Asset Management</h1>
@@ -183,8 +202,23 @@ const AssetManagementPage = () => {
           {/* Maintenance & Status */}
           <SectionHeader icon="🔧" title="MAINTENANCE & STATUS" />
           <div style={grid.two}>
-            <Field label="Previous Maintenance Date"><Input placeholder="" value={form.assetStatus} onChange={set("assetStatus")} /></Field>
-            <Field label="Asset Status"><Input placeholder="" value={form.lastMaintenance} onChange={set("lastMaintenance")} /></Field>
+            <Field label="Asset Status">
+              <select
+                value={form.assetStatus}
+                onChange={set("assetStatus")}
+                style={fieldStyles.input}
+                onFocus={(e) => (e.target.style.borderColor = "#6a7cff")}
+                onBlur={(e) => (e.target.style.borderColor = "#dde0f5")}
+              >
+                <option value="In Use">In Use</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Retired">Retired</option>
+              </select>
+            </Field>
+            {/* ── UPDATED: Previous Maintenance Date is now a date picker ── */}
+            <Field label="Previous Maintenance Date">
+              <Input type="date" value={form.lastMaintenance} onChange={set("lastMaintenance")} />
+            </Field>
           </div>
           <div style={{ marginTop: "16px" }}>
             <Field label="Maintenance Description">
@@ -242,10 +276,10 @@ const AssetManagementPage = () => {
                   <td style={registry.td}>{a.type}</td>
                   <td style={registry.td}>{a.location}</td>
                   <td style={registry.td}>{a.user}</td>
-                  <td style={registry.td}>{a.maintenance}</td>
+                  <td style={registry.td}>{formatDate(a.maintenance)}</td>
                   <td style={registry.td}>
                     <span style={{ ...registry.statusBadge, ...statusColor(a.status) }}>
-                      {a.status}
+                      {normalizeStatus(a.status)}
                     </span>
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /* ─────────────────────────────────────────────
    DATA PER TIME PERIOD
@@ -182,7 +182,10 @@ const TimeFilter = ({ active, setActive }) => (
           color: active === t ? "#fff" : "#64748b",
           boxShadow: active === t ? "0 1px 4px #0002" : "none", transition: "all .2s" }}>
         {t === "Live"
-          ? <span style={{ display: "flex", alignItems: "center", gap: 6 }}>{t}<span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 0 2px #22c55e44" }} /></span>
+          ? <span style={{ display: "flex", alignItems: "center", gap: 6 }}>{t}<span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block",
+              animation: "livePulse 1.5s ease-in-out infinite",
+            }} />
+            <style>{`@keyframes livePulse { 0%,100%{box-shadow:0 0 0 0 #22c55e55} 50%{box-shadow:0 0 0 4px #22c55e22} }`}</style></span>
           : t}
       </button>
     ))}
@@ -341,20 +344,57 @@ const PCDetailModal = ({ pc, onClose, period }) => {
 /* ─────────────────────────────────────────────
    MAIN PAGE
 ───────────────────────────────────────────── */
+const clamp = (v, min, max) => Math.min(Math.max(Math.round(v), min), max);
+const jitter = (v, delta) => v + (Math.random() * 2 - 1) * delta;
+
+const mutateLiveServers = (prev) =>
+  prev.map(s => ({
+    ...s,
+    cpu:    clamp(jitter(s.cpu,    3), 5, 99),
+    memory: clamp(jitter(s.memory, 2), 10, 99),
+    disk:   clamp(jitter(s.disk,   1), 5, 99),
+    temp:   s.temp > 0 ? clamp(jitter(s.temp, 1), 30, 98) : 0,
+  }));
+
+const mutateLivePCs = (prev) =>
+  prev.map(p => ({
+    ...p,
+    cpu:  p.cpu  != null ? clamp(jitter(p.cpu,  4), 2, 99) : null,
+    ram:  p.ram  != null ? clamp(jitter(p.ram,  3), 5, 99) : null,
+    disk: p.disk != null ? clamp(jitter(p.disk, 1), 5, 99) : null,
+  }));
+
 const ServerHealthPage = () => {
-  const [timeFilter, setTimeFilter] = useState("Live");
+  const [timeFilter, setTimeFilter]   = useState("Live");
   const [serverSearch, setServerSearch] = useState("");
   const [serverFilter, setServerFilter] = useState("All");
-  const [pcSearch, setPcSearch] = useState("");
-  const [pcFilter, setPcFilter] = useState("All");
+  const [pcSearch, setPcSearch]       = useState("");
+  const [pcFilter, setPcFilter]       = useState("All");
   const [selectedServer, setSelectedServer] = useState(null);
-  const [selectedPC, setSelectedPC] = useState(null);
+  const [selectedPC, setSelectedPC]   = useState(null);
+  const [liveServers, setLiveServers] = useState(() => JSON.parse(JSON.stringify(allServerData["Live"])));
+  const [livePCs,     setLivePCs]     = useState(() => JSON.parse(JSON.stringify(allPCData["Live"])));
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [pulse, setPulse]             = useState(false);
+  const intervalRef = useRef(null);
 
-  // ← Data switches based on selected time period
-  const serverData = allServerData[timeFilter];
-  const pcData     = allPCData[timeFilter];
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (timeFilter !== "Live") return;
+    intervalRef.current = setInterval(() => {
+      setLiveServers(prev => mutateLiveServers(prev));
+      setLivePCs(prev => mutateLivePCs(prev));
+      setLastRefreshed(new Date());
+      setPulse(true);
+      setTimeout(() => setPulse(false), 600);
+    }, 3000);
+    return () => clearInterval(intervalRef.current);
+  }, [timeFilter]);
 
-  const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const serverData = timeFilter === "Live" ? liveServers : allServerData[timeFilter];
+  const pcData     = timeFilter === "Live" ? livePCs     : allPCData[timeFilter];
+
+  const now = lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   const filteredServers = serverData.filter(s =>
     (s.id.toLowerCase().includes(serverSearch.toLowerCase()) || s.name.toLowerCase().includes(serverSearch.toLowerCase()))
@@ -381,7 +421,14 @@ const ServerHealthPage = () => {
           <div>
            
             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#0f172a" }}>🖥️ Server & PC Health Monitoring</h1>
-            <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>Real-time performance, uptime, and alerts across all infrastructure.</p>
+            <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
+            Real-time performance, uptime, and alerts across all infrastructure.
+            {timeFilter === "Live" && (
+              <span style={{ marginLeft: 10, fontSize: 12, color: "#10b981", fontWeight: 600 }}>
+                ● Auto-refreshing every 3s
+              </span>
+            )}
+          </p>
           </div>
           <TimeFilter active={timeFilter} setActive={(t) => { setTimeFilter(t); setSelectedServer(null); setSelectedPC(null); }} />
         </div>
@@ -434,7 +481,13 @@ const ServerHealthPage = () => {
         </div>
         <div style={tableFooter}>
           <span>Showing {filteredServers.length} of {serverData.length} servers</span>
-          <span>🕐 {now}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {timeFilter === "Live" && (
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: pulse ? "#22c55e" : "#10b981",
+                boxShadow: pulse ? "0 0 0 4px #22c55e33" : "none", display: "inline-block", transition: "all 0.3s" }} />
+            )}
+            🕐 {now}
+          </span>
         </div>
       </div>
 
@@ -480,7 +533,13 @@ const ServerHealthPage = () => {
         </div>
         <div style={tableFooter}>
           <span>Showing {filteredPCs.length} of {pcData.length} PCs</span>
-          <span>🕐 {now}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {timeFilter === "Live" && (
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: pulse ? "#22c55e" : "#10b981",
+                boxShadow: pulse ? "0 0 0 4px #22c55e33" : "none", display: "inline-block", transition: "all 0.3s" }} />
+            )}
+            🕐 {now}
+          </span>
         </div>
       </div>
 

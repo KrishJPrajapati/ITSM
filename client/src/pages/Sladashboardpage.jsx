@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /* ─────────────────────────── DATA PER TIME PERIOD ─────────────────────────── */
 const dataByPeriod = {
@@ -153,45 +153,160 @@ const dataByPeriod = {
   },
 };
 
-/* ─────────────────────────── DONUT CHART ─────────────────────────── */
+/* ─────────────────────────── ANIMATED DONUT CHART ─────────────────────────── */
+const COLORS = ["#6a7cff", "#f59e0b", "#10b981", "#e05252"];
+const CX = 80, CY = 80, R = 58, R_HOVER = 65, HOLE = 34;
+
+function polarToXY(angleDeg, r) {
+  const rad = (angleDeg - 90) * (Math.PI / 180);
+  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+}
+
+function describeArc(startDeg, endDeg, r) {
+  const start = polarToXY(startDeg, r);
+  const end = polarToXY(endDeg, r);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${CX} ${CY} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+}
+
 const DonutChart = ({ data, total }) => {
-  const colors = ["#6a7cff", "#f59e0b", "#10b981", "#e05252"];
   const labels = Object.keys(data);
   const values = Object.values(data);
-  let cumulative = 0;
+  const [hovered, setHovered] = useState(null);
+  const [animProgress, setAnimProgress] = useState(0);
+  const [tooltip, setTooltip] = useState(null);
+  const rafRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const DURATION = 900;
+
+  // Re-run spin animation whenever data changes (period switch)
+  const dataKey = JSON.stringify(data);
+  useEffect(() => {
+    setAnimProgress(0);
+    startTimeRef.current = null;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const animate = (ts) => {
+      if (!startTimeRef.current) startTimeRef.current = ts;
+      const elapsed = ts - startTimeRef.current;
+      const t = Math.min(elapsed / DURATION, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setAnimProgress(eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [dataKey]);
+
+  // Build slices
+  let cumDeg = 0;
   const slices = values.map((v, i) => {
-    const pct = v / 100;
-    const start = cumulative;
-    cumulative += pct;
-    const startAngle = start * 2 * Math.PI - Math.PI / 2;
-    const endAngle = cumulative * 2 * Math.PI - Math.PI / 2;
-    const r = 60, cx = 80, cy = 80;
-    const x1 = cx + r * Math.cos(startAngle);
-    const y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle);
-    const y2 = cy + r * Math.sin(endAngle);
-    const large = pct > 0.5 ? 1 : 0;
-    return { d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`, color: colors[i] };
+    const fullDeg = (v / 100) * 360;
+    const animDeg = fullDeg * animProgress;
+    const start = cumDeg;
+    const end = cumDeg + animDeg;
+    cumDeg += fullDeg; // advance by full so layout is stable
+    const r = hovered === i ? R_HOVER : R;
+    return { start, end: start + animDeg, r, color: COLORS[i], label: labels[i], value: v };
   });
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
       <div style={{ position: "relative", width: 160, height: 160, flexShrink: 0 }}>
-        <svg width="160" height="160" viewBox="0 0 160 160">
-          {slices.map((s, i) => <path key={i} d={s.d} fill={s.color} />)}
-          <circle cx="80" cy="80" r="36" fill="#fff" />
+        <svg
+          width="160" height="160" viewBox="0 0 160 160"
+          style={{ overflow: "visible" }}
+        >
+          <defs>
+            <filter id="slice-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.18)" />
+            </filter>
+          </defs>
+          {slices.map((s, i) => (
+            <path
+              key={i}
+              d={describeArc(s.start, s.end, s.r)}
+              fill={s.color}
+              opacity={hovered === null || hovered === i ? 1 : 0.45}
+              style={{
+                cursor: "pointer",
+                transition: "opacity 0.2s ease, filter 0.2s ease",
+                filter: hovered === i ? "url(#slice-shadow)" : "none",
+              }}
+              onMouseEnter={(e) => {
+                setHovered(i);
+                setTooltip({ i, x: e.clientX, y: e.clientY });
+              }}
+              onMouseMove={(e) => setTooltip({ i, x: e.clientX, y: e.clientY })}
+              onMouseLeave={() => { setHovered(null); setTooltip(null); }}
+            />
+          ))}
+          {/* Hole */}
+          <circle cx={CX} cy={CY} r={HOLE} fill="#fff" />
+          {/* Centre label */}
+          <text x={CX} y={CY - 6} textAnchor="middle" fontSize="13" fontWeight="700" fill="#1e2433">
+            {total.toLocaleString()}
+          </text>
+          <text x={CX} y={CY + 10} textAnchor="middle" fontSize="10" fill="#8a8fa8">tickets</text>
         </svg>
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1e2433" }}>{total.toLocaleString()}</div>
-          <div style={{ fontSize: 10, color: "#8a8fa8" }}>tickets</div>
-        </div>
+
+        {/* Floating tooltip */}
+        {tooltip !== null && hovered !== null && (
+          <div style={{
+            position: "fixed",
+            left: tooltip.x + 12,
+            top: tooltip.y - 36,
+            background: "#1e2433",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "5px 10px",
+            borderRadius: 8,
+            pointerEvents: "none",
+            zIndex: 9999,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}>
+            {labels[hovered]}: {values[hovered]}%
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+      {/* Legend with animated bars */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         {labels.map((l, i) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: colors[i], flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: "#4a4f6a" }}>{l}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e2433", marginLeft: "auto" }}>{values[i]}%</span>
+          <div
+            key={l}
+            style={{
+              display: "flex", flexDirection: "column", gap: 4,
+              cursor: "pointer",
+              opacity: hovered === null || hovered === i ? 1 : 0.45,
+              transition: "opacity 0.2s ease",
+            }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: "50%",
+                background: COLORS[i], flexShrink: 0,
+                transform: hovered === i ? "scale(1.35)" : "scale(1)",
+                transition: "transform 0.2s ease",
+              }} />
+              <span style={{ fontSize: 13, color: "#4a4f6a", flex: 1 }}>{l}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#1e2433" }}>{values[i]}%</span>
+            </div>
+            {/* Animated mini progress bar */}
+            <div style={{ height: 3, background: "#e8eaf5", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${values[i] * animProgress}%`,
+                background: COLORS[i],
+                borderRadius: 2,
+                transition: "width 0.05s linear",
+              }} />
+            </div>
           </div>
         ))}
       </div>
@@ -221,10 +336,71 @@ const BarChart = ({ volumes, days }) => {
 };
 
 /* ─────────────────────────── MAIN PAGE ─────────────────────────── */
+
 const SLADashboardPage = () => {
   const [period, setPeriod] = useState("Live");
-  const d = dataByPeriod[period];
+  const [liveData, setLiveData] = useState(() => JSON.parse(JSON.stringify(dataByPeriod["Live"])));
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [pulse, setPulse] = useState(false);
+  const intervalRef = useRef(null);
+
+  // Helper: clamp a number between min and max
+  const clamp = (v, min, max) => Math.min(Math.max(Math.round(v), min), max);
+  // Helper: small random fluctuation ±delta
+  const jitter = (v, delta) => v + (Math.random() * 2 - 1) * delta;
+
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (period !== "Live") return;
+
+    intervalRef.current = setInterval(() => {
+      setLiveData(prev => {
+        const base = dataByPeriod["Live"];
+        return {
+          ...prev,
+          overallSLA:        parseFloat(clamp(jitter(prev.overallSLA, 0.3), 90, 100).toFixed(1)),
+          avgFirstResponse:  clamp(jitter(prev.avgFirstResponse, 1), 10, 40),
+          avgResolution:     parseFloat((Math.max(1.0, jitter(prev.avgResolution, 0.1))).toFixed(1)),
+          breachRate:        parseFloat(clamp(jitter(prev.breachRate, 0.2), 1, 15).toFixed(1)),
+          ticketOpen:        clamp(jitter(prev.ticketOpen, 1), 0, 60),
+          ticketInProgress:  clamp(jitter(prev.ticketInProgress, 1), 0, 30),
+          ticketVolume:      prev.ticketVolume.map(v => clamp(jitter(v, 8), 100, 320)),
+          slaByPriority: prev.slaByPriority.map(row => {
+            const newAch = parseFloat(clamp(jitter(row.achieved, 0.4), 75, 100).toFixed(1));
+            return { ...row, achieved: newAch, progress: newAch, status: newAch >= 95 ? "Met" : "At Risk" };
+          }),
+          avgResponseVsTarget: prev.avgResponseVsTarget.map(row => {
+            const newActual = clamp(jitter(row.actual, 10), 20, row.target * 1.4);
+            return { ...row, actual: newActual, color: newActual > row.target ? "#e05252" : "#10b981", over: newActual > row.target };
+          }),
+          reliability: {
+            ...prev.reliability,
+            uptime: parseFloat(clamp(jitter(parseFloat(prev.reliability.uptime), 0.03), 99, 100).toFixed(2)) + "%",
+          },
+          categoryMix: (() => {
+            const keys = Object.keys(prev.categoryMix);
+            const vals = keys.map(k => clamp(jitter(prev.categoryMix[k], 1.5), 10, 50));
+            const total = vals.reduce((a, b) => a + b, 0);
+            const normalized = vals.map(v => Math.round((v / total) * 100));
+            // fix rounding so it sums to 100
+            const diff = 100 - normalized.reduce((a, b) => a + b, 0);
+            normalized[0] += diff;
+            return Object.fromEntries(keys.map((k, i) => [k, normalized[i]]));
+          })(),
+        };
+      });
+      setLastRefreshed(new Date());
+      setPulse(true);
+      setTimeout(() => setPulse(false), 600);
+    }, 3000);
+
+    return () => clearInterval(intervalRef.current);
+  }, [period]);
+
+  const d = period === "Live" ? liveData : dataByPeriod[period];
   const periods = ["Live", "24 Hours", "7 Days", "30 Days"];
+  const refreshTime = lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
 
   return (
     <div style={styles.page}>
@@ -258,7 +434,6 @@ const SLADashboardPage = () => {
 
       {/* ── SLA Compliance by Priority + Daily Ticket Volume ── */}
       <div style={styles.row2}>
-        {/* SLA Compliance Table */}
         <div style={{ ...styles.card, flex: 1.2 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>SLA Compliance by Priority</span>
@@ -295,7 +470,6 @@ const SLADashboardPage = () => {
           </table>
         </div>
 
-        {/* Daily Ticket Volume */}
         <div style={{ ...styles.card, flex: 1 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Daily Ticket Volume ({period === "30 Days" ? "Last 30 Days" : "Last 7 Days"})</span>
@@ -315,7 +489,6 @@ const SLADashboardPage = () => {
 
       {/* ── Category Mix + Avg Response vs Target + Reliability ── */}
       <div style={styles.row3}>
-        {/* Issue Category Mix */}
         <div style={{ ...styles.card, flex: 1 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Issue Category Mix</span>
@@ -325,7 +498,6 @@ const SLADashboardPage = () => {
           </div>
         </div>
 
-        {/* Avg Response vs Target */}
         <div style={{ ...styles.card, flex: 1.3 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Avg Response vs Target</span>
@@ -352,11 +524,13 @@ const SLADashboardPage = () => {
           </div>
         </div>
 
-        {/* Reliability Metrics */}
         <div style={{ ...styles.card, flex: 1 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Reliability Metrics</span>
-            <span style={{ ...styles.badge, background: "#1e2433", color: "#fff", fontSize: 10 }}>Live</span>
+            <span style={{ ...styles.badge, background: "#1e2433", color: "#fff", fontSize: 10, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: period === "Live" ? "#22c55e" : "#94a3b8", display: "inline-block", boxShadow: period === "Live" && pulse ? "0 0 0 3px #22c55e44" : "none", transition: "box-shadow 0.3s" }} />
+              {period === "Live" ? "Live" : "Historical"}
+            </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 8 }}>
             {[
@@ -378,7 +552,6 @@ const SLADashboardPage = () => {
 
       {/* ── Recent SLA Breaches + Agent Performance ── */}
       <div style={styles.row2}>
-        {/* Recent SLA Breaches */}
         <div style={{ ...styles.card, flex: 1 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Recent SLA Breaches</span>
@@ -399,7 +572,6 @@ const SLADashboardPage = () => {
           </div>
         </div>
 
-        {/* Agent Performance */}
         <div style={{ ...styles.card, flex: 1 }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>Agent Performance</span>
@@ -451,7 +623,15 @@ const SLADashboardPage = () => {
 
       {/* ── Footer ── */}
       <div style={styles.footer}>
-        <span>Last Refreshed: <b>Today, 10:00 PM</b> · Period: <b>Feb 12–18, 2024</b> · Client: <b>client1234@gmail.com</b></span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {period === "Live" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: pulse ? "#22c55e" : "#10b981", display: "inline-block", transition: "background 0.3s", boxShadow: pulse ? "0 0 0 4px #22c55e33" : "none" }} />
+              <span style={{ color: "#10b981", fontWeight: 700, fontSize: 12 }}>LIVE</span>
+            </span>
+          )}
+          Last Refreshed: <b>{refreshTime}</b> · Client: <b>client1234@gmail.com</b>
+        </span>
         <button style={styles.exportBtn}>Export Report</button>
       </div>
     </div>
@@ -475,7 +655,6 @@ const styles = {
   page: { fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif", padding: 0, background: "#f5f6fb", minHeight: "100vh" },
   headerBox: { background: "#fff", borderRadius: 14, padding: "20px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #e8eaf5", marginBottom: 24 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 },
-  platformLabel: { margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#4b4f9c", letterSpacing: "1.2px", textTransform: "uppercase" },
   titleRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 4 },
   bolt: { fontSize: 22, background: "linear-gradient(135deg,#f59e0b,#ef4444)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
   title: { fontSize: 22, fontWeight: 800, color: "#1e2433", margin: 0 },

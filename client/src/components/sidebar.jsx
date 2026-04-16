@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import AddUserModal from "./AddUserModal"; // adjust path if needed
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const [showUserModal, setShowUserModal] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
@@ -10,63 +12,81 @@ const Sidebar = () => {
   };
 
   return (
-    <div style={styles.sidebar}>
-      {/* User Profile */}
-      <div style={styles.profile}>
-        <div style={styles.avatar}>KP</div>
-        <div>
-          <div style={styles.name}>client 1</div>
-          <div style={styles.email}>client1234@gnu.ac.in</div>
+    <>
+      <div style={styles.sidebar}>
+        {/* User Profile */}
+        <div style={styles.profile}>
+          <div style={styles.avatar}>KP</div>
+          <div>
+            <div style={styles.name}>client 1</div>
+            <div style={styles.email}>client1234@gnu.ac.in</div>
+          </div>
+        </div>
+
+        <hr style={styles.divider} />
+
+        {/* Back + Add User row */}
+        <div style={styles.actionRow}>
+          <button style={styles.backBtn} onClick={() => navigate(-1)}>
+            <span style={styles.backArrow}>&#8592;</span>
+            <span style={styles.backLabel}>Back</span>
+          </button>
+
+          <button
+            style={styles.addUserBtn}
+            onClick={() => setShowUserModal(true)}
+            title="Add User"
+          >
+            <span style={{ fontSize: "15px" }}>👥</span>
+            <span style={styles.backLabel}>Users</span>
+          </button>
+        </div>
+
+        <hr style={styles.divider} />
+
+        {/* Navigation Menu */}
+        <nav style={styles.menu}>
+          <NavLink to="/asset" style={navStyle}>
+            <span style={styles.navIcon}>🗂️</span>
+            Asset Management
+          </NavLink>
+
+          <NavLink to="/ticket" style={navStyle}>
+            <span style={styles.navIcon}>🎫</span>
+            Ticket Management Platform
+          </NavLink>
+
+          <NavLink to="/server-health" style={navStyle}>
+            <span style={styles.navIcon}>🖥️</span>
+            Server &amp; PC Health Monitoring
+          </NavLink>
+
+          <NavLink to="/remote-logs" style={navStyle}>
+            <span style={styles.navIcon}>📋</span>
+            Remote Troubleshooting Logs
+          </NavLink>
+
+          <NavLink to="/sla-dashboard" style={navStyle}>
+            <span style={styles.navIcon}>📊</span>
+            SLA &amp; Performance Dashboard
+          </NavLink>
+        </nav>
+
+        {/* Logout Button — pinned to bottom */}
+        <div style={styles.logoutWrapper}>
+          <hr style={styles.divider} />
+          <button style={styles.logoutBtn} onClick={handleLogout}>
+            <span style={styles.navIcon}>🚪</span>
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 
-      <hr style={styles.divider} />
-
-      {/* Back Button */}
-      <button style={styles.backBtn} onClick={() => navigate(-1)}>
-        <span style={styles.backArrow}>&#8592;</span>
-        <span style={styles.backLabel}>Back</span>
-      </button>
-
-      <hr style={styles.divider} />
-
-      {/* Navigation Menu */}
-      <nav style={styles.menu}>
-        <NavLink to="/asset" style={navStyle}>
-          <span style={styles.navIcon}>🗂️</span>
-          Asset Management
-        </NavLink>
-
-        <NavLink to="/ticket" style={navStyle}>
-          <span style={styles.navIcon}>🎫</span>
-          Ticket Management Platform
-        </NavLink>
-
-        <NavLink to="/server-health" style={navStyle}>
-          <span style={styles.navIcon}>🖥️</span>
-          Server &amp; PC Health Monitoring
-        </NavLink>
-
-        <NavLink to="/remote-logs" style={navStyle}>
-          <span style={styles.navIcon}>📋</span>
-          Remote Troubleshooting Logs
-        </NavLink>
-
-        <NavLink to="/sla-dashboard" style={navStyle}>
-          <span style={styles.navIcon}>📊</span>
-          SLA &amp; Performance Dashboard
-        </NavLink>
-      </nav>
-
-      {/* Logout Button — pinned to bottom */}
-      <div style={styles.logoutWrapper}>
-        <hr style={styles.divider} />
-        <button style={styles.logoutBtn} onClick={handleLogout}>
-          <span style={styles.navIcon}>🚪</span>
-          <span>Logout</span>
-        </button>
-      </div>
-    </div>
+      {/* Add User Modal */}
+      {showUserModal && (
+        <AddUserModal onClose={() => setShowUserModal(false)} />
+      )}
+    </>
   );
 };
 
@@ -102,29 +122,54 @@ const styles = {
     flexDirection: "column",
   },
 
+  // ── NEW: row that holds Back + Users side-by-side ──
+  actionRow: {
+    display: "flex",
+    gap: "8px",
+  },
+
   backBtn: {
+    flex: 1,
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    justifyContent: "center",
+    gap: "6px",
     background: "rgba(255,255,255,0.15)",
     border: "1px solid rgba(255,255,255,0.25)",
     borderRadius: "10px",
     color: "#fff",
-    padding: "9px 16px",
+    padding: "9px 10px",
     cursor: "pointer",
     fontSize: "13px",
     fontWeight: 600,
     letterSpacing: "0.3px",
-    width: "100%",
-    transition: "background 0.18s ease, transform 0.15s ease",
+    transition: "background 0.18s ease",
+    fontFamily: "'Segoe UI', sans-serif",
+  },
+
+  // ── NEW: Users button — same style as backBtn ──
+  addUserBtn: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    background: "rgba(255,255,255,0.15)",
+    border: "1px solid rgba(255,255,255,0.25)",
+    borderRadius: "10px",
+    color: "#fff",
+    padding: "9px 10px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 600,
+    letterSpacing: "0.3px",
+    transition: "background 0.18s ease",
     fontFamily: "'Segoe UI', sans-serif",
   },
 
   backArrow: {
     fontSize: "16px",
     lineHeight: 1,
-    display: "inline-block",
-    transition: "transform 0.15s ease",
   },
 
   backLabel: {
@@ -169,7 +214,7 @@ const styles = {
     flexDirection: "column",
     gap: "4px",
     marginTop: "4px",
-    flex: 1,          // ✅ pushes logout to the very bottom
+    flex: 1,
   },
 
   navIcon: {
@@ -196,7 +241,7 @@ const styles = {
     fontWeight: 600,
     letterSpacing: "0.3px",
     width: "100%",
-    transition: "background 0.18s ease, transform 0.15s ease",
+    transition: "background 0.18s ease",
     fontFamily: "'Segoe UI', sans-serif",
   },
 };
