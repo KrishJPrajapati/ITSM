@@ -46,6 +46,11 @@ const Sidebar = () => {
 
         {/* Navigation Menu */}
         <nav style={styles.menu}>
+          <NavLink to="/sla-dashboard" style={navStyle}>
+            <span style={styles.navIcon}>📊</span>
+            SLA &amp; Performance Dashboard
+          </NavLink>
+
           <NavLink to="/asset" style={navStyle}>
             <span style={styles.navIcon}>🗂️</span>
             Asset Management
@@ -64,11 +69,6 @@ const Sidebar = () => {
           <NavLink to="/remote-logs" style={navStyle}>
             <span style={styles.navIcon}>📋</span>
             Remote Troubleshooting Logs
-          </NavLink>
-
-          <NavLink to="/sla-dashboard" style={navStyle}>
-            <span style={styles.navIcon}>📊</span>
-            SLA &amp; Performance Dashboard
           </NavLink>
         </nav>
 
