@@ -1,34 +1,31 @@
-import express from 'express';
+import express from "express";
 
-// Client Controllers
-import { 
-  createClientByAdmin, 
-  createClientByEmployee, 
-  loginClientEmployee 
-} from '../controllers/clientEmployeeController.js';
+/* ================= CONTROLLERS ================= */
+import { getClosedTickets } from "../controllers/logController.js";
+import {
+  getAllClientEmployees,
+  updateClientEmployee,
+  deleteClientEmployee
+} from "../controllers/clientEmployeeController.js";
+import {
+  createClientByAdmin,
+  createClientByEmployee,
+  loginClientEmployee,
+} from "../controllers/clientEmployeeController.js";
 
-// IT Employee Controllers
-import { 
+import {
   createItEmployee,
   loginItEmployee,
   updateItEmployee,
-  deleteItEmployee
-} from '../controllers/itEmployeeController.js';
+  deleteItEmployee,
+  getAllItEmployees,
+} from "../controllers/itEmployeeController.js";
 
-// middleware auth
-import { 
-  protect, 
-  superAdminOnly,
-  hrOrHodOnly,
-  clientHodOrManagerOnly
-} from '../middleware/authMiddleware.js';
-
-// Client Company Controllers
 import {
   addClientCompany,
   updateClientCompany,
   deleteClientCompany,
-  getAllClientCompanies
+  getAllClientCompanies,
 } from "../controllers/clientCompanyController.js";
 
 import {
@@ -36,73 +33,198 @@ import {
   reassignEngineer,
   trackTicket,
   getAllTickets,
+  getUserTickets,
+  getAssignedTickets,
+  updateTicketStatus,
   sendCloseOtp,
-  closeTicket
+  closeTicket,
 } from "../controllers/ticketController.js";
 
-// Super Admin Controllers
-import { loginSuperAdmin } from '../controllers/superAdminController.js';
+import {
+  createAsset,
+  getAssets,
+  updateAsset,
+  deleteAsset,
+} from "../controllers/assetController.js";
+
+import { loginSuperAdmin } from "../controllers/superAdminController.js";
+
+/* ================= MIDDLEWARE ================= */
+
+import {
+  protect,
+  superAdminOnly,
+  hrOrHodOnly,
+} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-/* ================= CLIENT EMPLOYEE ROUTES ================= */
+/* ================= AUTH ================= */
 
-// login
-router.post('/clients/login', loginClientEmployee);
+router.post("/clients/login", loginClientEmployee);
+router.post("/employee/login", loginItEmployee);
+router.post("/nimda/login", loginSuperAdmin);
 
-// Super Admin creates client employee
-router.post('/nimda/addclients', protect, superAdminOnly, createClientByAdmin);
+/* ================= CLIENT EMPLOYEE ================= */
+// CLIENT EMPLOYEE MANAGEMENT
+router.get("/clients/all", protect, getAllClientEmployees);
 
-// client HOD or Manager creates client employee
-router.post('/employee/addclients', protect, clientHodOrManagerOnly, createClientByEmployee);
+router.put("/clients/:id", protect, updateClientEmployee);
 
-// IT HOD or Manager creates client employee
-router.post('/employee/addclients', protect, hrOrHodOnly, createClientByEmployee);
+router.delete("/clients/:id", protect, deleteClientEmployee);
 
+// router.get("/clients/all", protect, getAllClientEmployees);
 
-/* ================= SUPER ADMIN ROUTES ================= */
+router.post(
+  "/clients/create-by-admin",
+  protect,
+  superAdminOnly,
+  createClientByAdmin
+);
 
-// login
-router.post('/nimda/login', loginSuperAdmin);
+router.post(
+  "/clients/create",
+  protect,
+  (req, res, next) => {
+    const { role, designation } = req.user;
 
+    if (
+      (role === "clientEmployee" &&
+        ["HOD", "Manager"].includes(designation)) ||
+      (role === "itEmployee" &&
+        ["HR", "HR Manager", "HOD"].includes(designation))
+    ) {
+      return next();
+    }
 
-/* ================= IT EMPLOYEE ROUTES ================= */
+    return res.status(403).json({
+      message: "Not authorized to create client employees",
+    });
+  },
+  createClientByEmployee
+);
 
-// login
-router.post('/employee/login', loginItEmployee);
+/* ================= IT EMPLOYEE ================= */
 
-// HR / HR Manager / HOD can create IT employee
-router.post('/employee/add-it-employee', protect, hrOrHodOnly, createItEmployee);
+router.post("/employee/create", protect, hrOrHodOnly, createItEmployee);
 
-// Super Admin can also create IT employee
-router.post('/nimda/add-it-employee', protect, superAdminOnly, createItEmployee);
+router.post(
+  "/nimda/create-employee",
+  protect,
+  superAdminOnly,
+  createItEmployee
+);
 
-// Manager
-router.post('/manager/add-it-employee', protect, hrOrHodOnly, createItEmployee);
+router.put("/employee/update/:e_id", protect, hrOrHodOnly, updateItEmployee);
 
-// Update employee
-router.put('/employee/update/:e_id', protect, hrOrHodOnly, updateItEmployee);
+router.delete(
+  "/employee/delete/:e_id",
+  protect,
+  superAdminOnly,
+  deleteItEmployee
+);
+// GET
+router.get("/employee/all", protect, getAllItEmployees);
 
-// Delete employee
-router.delete('/employee/delete/:e_id', protect, superAdminOnly, deleteItEmployee);
+// UPDATE (uses e_id)
+router.put("/employee/update/:e_id", protect, updateItEmployee);
 
-/* ================= CLIENT COMPANY ROUTES ================= */
+// DELETE (uses e_id)
+router.delete("/employee/delete/:e_id", protect, deleteItEmployee);
 
-// Super Admin manages client companies
-router.post('/nimda/add-company', protect, superAdminOnly, addClientCompany);
-router.put('/nimda/update-company/:company_id', protect, superAdminOnly, updateClientCompany);
-router.delete('/nimda/delete-company/:company_id', protect, superAdminOnly, deleteClientCompany);
-router.get('/nimda/companies', protect, superAdminOnly, getAllClientCompanies);
+/* ================= CLIENT COMPANY ================= */
+router.post("/company/create", protect, superAdminOnly, addClientCompany);
 
-/* ================= TICKET ROUTES ================= */
+router.put(
+  "/company/update/:company_id",
+  protect,
+  superAdminOnly,
+  updateClientCompany
+);
 
-router.post('/ticket/create', protect, createTicket);
-router.put('/ticket/reassign/:ticket_id', protect, reassignEngineer);
+router.delete(
+  "/company/delete/:company_id",
+  protect,
+  superAdminOnly,
+  deleteClientCompany
+);
 
-router.get('/ticket/:ticket_id', protect, trackTicket);
-router.get('/tickets', protect, getAllTickets);
+router.get("/company/all", protect, getAllClientCompanies);
 
-router.post('/ticket/send-otp/:ticket_id', protect, sendCloseOtp);
-router.post('/ticket/close/:ticket_id', protect, closeTicket);
+/* ================= TICKETS ================= */
+
+// CREATE
+router.post("/ticket/create", protect, createTicket);
+
+// TRACK SINGLE
+router.get("/ticket/:ticket_id", protect, trackTicket);
+
+// USER VIEW (client)
+router.get("/ticket/user/:email", protect, getUserTickets);
+
+// ENGINEER VIEW
+router.get("/ticket/assigned/:e_id", protect, getAssignedTickets);
+
+// MANAGER / HOD VIEW
+router.get(
+  "/tickets",
+  protect,
+  (req, res, next) => {
+    const { role, designation } = req.user;
+
+    if (
+      role === "superAdmin" ||
+      (role === "itEmployee" &&
+        ["HOD", "Manager", "HR", "HR Manager"].includes(designation))
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      message: "Access denied to all tickets",
+    });
+  },
+  getAllTickets
+);
+
+// STATUS UPDATE (engineer)
+router.put("/ticket/status/:ticket_id", protect, updateTicketStatus);
+
+// REASSIGN (manager / HOD only)
+router.put(
+  "/ticket/reassign/:ticket_id",
+  protect,
+  (req, res, next) => {
+    const { role, designation } = req.user;
+
+    if (
+      role === "superAdmin" ||
+      (role === "itEmployee" &&
+        ["HOD", "Manager"].includes(designation))
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      message: "Not authorized to reassign tickets",
+    });
+  },
+  reassignEngineer
+);
+
+// OTP + CLOSE
+router.post("/ticket/send-otp/:ticket_id", protect, sendCloseOtp);
+router.post("/ticket/close/:ticket_id", protect, closeTicket);
+
+/* ================= ASSETS ================= */
+
+router.post("/asset/create", protect, createAsset);
+router.get("/asset/all", protect, getAssets);
+router.put("/asset/:id", protect, updateAsset);
+router.delete("/asset/:id", protect, deleteAsset);
+
+/* ================= REMOTE LOGS ================= */
+
+router.get("/logs/closed", protect, getClosedTickets);
 
 export default router;

@@ -1,53 +1,99 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+
+/* ================= PROTECT ================= */
 
 export const protect = (req, res, next) => {
   let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded; // contains id + role
-      next();
+
+      // ✅ Ensure consistent structure
+      req.user = {
+        id: decoded.id,
+        role: decoded.role,
+        designation: decoded.designation,
+      };
+
+      return next();
     } catch (error) {
-      return res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({
+        message: "Not authorized, token failed",
+      });
     }
   }
 
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
-  }
+  return res.status(401).json({
+    message: "Not authorized, no token",
+  });
 };
 
-export const superAdminOnly = (req, res, next) => {
-  if (req.user && req.user.role === 'superadmin') {
+/* ================= GENERIC ROLE CHECK ================= */
+
+export const allowRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Access denied (role restriction)",
+      });
+    }
     next();
-  } else {
-    res.status(403).json({ message: 'Access denied. Super Admin only.' });
-  }
+  };
 };
 
-export const clientHodOrManagerOnly = (req, res, next) => {
-  if (
-    req.user &&
-    req.user.role === 'clientEmployee' &&
-    (req.user.designation === 'HOD' || req.user.designation === 'Manager')
-  ) {
+/* ================= GENERIC DESIGNATION CHECK ================= */
+
+export const allowDesignations = (...designations) => {
+  return (req, res, next) => {
+    if (
+      !req.user ||
+      !designations.includes(req.user.designation)
+    ) {
+      return res.status(403).json({
+        message: "Access denied (designation restriction)",
+      });
+    }
     next();
-  } else {
-    res.status(403).json({ message: 'Access denied. Only HOD or Manager can add clients.' });
-  }
+  };
 };
 
-export const hrOrHodOnly = (req, res, next) => {
-  if (
-    req.user &&
-    req.user.role === 'employee' &&
-    ['HR', 'HR Manager', 'HOD'].includes(req.user.designation)
-  ) {
-    next();
-  } else {
-    res.status(403).json({ message: 'Access denied. Only HR, HR Manager, or HOD can create IT employees.' });
-  }
+/* ================= COMBINED ROLE + DESIGNATION ================= */
+
+export const allowRoleWithDesignation = (role, designations) => {
+  return (req, res, next) => {
+    if (
+      req.user &&
+      req.user.role === role &&
+      designations.includes(req.user.designation)
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      message: "Access denied (role + designation restriction)",
+    });
+  };
 };
+
+/* ================= SPECIFIC (KEEP FOR COMPATIBILITY) ================= */
+
+// Super Admin
+export const superAdminOnly = allowRoles("superAdmin");
+
+// Client HOD / Manager
+export const clientHodOrManagerOnly = allowRoleWithDesignation(
+  "clientEmployee",
+  ["HOD", "Manager"]
+);
+
+// IT HR / HOD
+export const hrOrHodOnly = allowRoleWithDesignation(
+  "itEmployee",
+  ["HR", "HR Manager", "HOD"]
+);
