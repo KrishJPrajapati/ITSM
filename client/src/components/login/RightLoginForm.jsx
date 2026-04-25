@@ -88,36 +88,53 @@ const UserForm = () => {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    console.log("🔥 CLIENT LOGIN CLICKED");
+  console.log("🔥 CLIENT LOGIN CLICKED");
 
-    try {
-      const response = await API.loginClientEmployee({
-        email: username,
-        password,
-      });
+  // ✅ EMAIL REGEX
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-      console.log("CLIENT RESPONSE 👉", response);
+  // ❌ VALIDATION
+  if (!emailRegex.test(username)) {
+    alert("Please enter a valid email (example@domain.com)");
+    return;
+  }
 
-      if (response.isSuccess) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("role", "clientEmployee");
-        localStorage.setItem("user", JSON.stringify({
-        name: response.data.user.name,
-        email: response.data.user.email,
-        designation: response.data.user.designation,
-        e_id: response.data.user.e_id
-      }));
-        alert("Login success");
-        navigate("/client/ticket");
-      } else {
-        console.warn("Login failed response:", response);
-        alert(response.msg || "Login failed");
-      }
-    } catch (error) {
-      console.error("❌ CLIENT ERROR:", error);
-      alert(error.msg || "Server error");
+  if (password.length < 6) {
+    alert("Password must be at least 6 characters");
+    return;
+  }
+
+  try {
+    const response = await API.loginClientEmployee({
+      email: username,
+      password,
+    });
+
+    console.log("CLIENT RESPONSE 👉", response);
+
+    if (response.isSuccess) {
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("role", "clientEmployee");
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          name: response.data.user.name,
+          email: response.data.user.email,
+          designation: response.data.user.designation,
+          e_id: response.data.user.e_id,
+        })
+      );
+
+      alert("Login success");
+      navigate("/client/ticket");
+    } else {
+      alert(response.msg || "Login failed");
     }
-  };
+  } catch (error) {
+    console.error("❌ CLIENT ERROR:", error);
+    alert(error.msg || "Server error");
+  }
+};
 
   return (
     <>
@@ -159,38 +176,51 @@ const AdminForm = () => {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    console.log("🔥 IT LOGIN CLICKED");
+  console.log("🔥 IT LOGIN CLICKED");
 
-    try {
-      console.log('trying loginapi')
-      const response = await API.loginITEmployee({
-        email: employeeId,
-        password,
-      });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-      console.log("IT RESPONSE 👉", response);
+  if (!emailRegex.test(employeeId)) {
+    alert("Please enter a valid email (example@domain.com)");
+    return;
+  }
 
-      if (response.isSuccess) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("role", "itEmployee");
-        localStorage.setItem("user", JSON.stringify({
-        name: response.data.user.name,
-        email: response.data.user.email,
-        designation: response.data.user.designation,
-        e_id: response.data.user.e_id
-      }));
-        alert("Login success");
-        navigate("/it/ticket");
-      } else {
-        console.warn("Login failed response:", response);
-        alert(response.msg || "Login failed");
-      }
-    } catch (error) {
-      console.error("❌ IT ERROR:", error);
-      alert(error.msg || "Server error");
+  if (password.length < 6) {
+    alert("Password must be at least 6 characters");
+    return;
+  }
+
+  try {
+    const response = await API.loginITEmployee({
+      email: employeeId,
+      password,
+    });
+
+    console.log("IT RESPONSE 👉", response);
+
+    if (response.isSuccess) {
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("role", "itEmployee");
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          name: response.data.user.name,
+          email: response.data.user.email,
+          designation: response.data.user.designation,
+          e_id: response.data.user.e_id,
+        })
+      );
+
+      alert("Login success");
+      navigate("/it/ticket");
+    } else {
+      alert(response.msg || "Login failed");
     }
-  };
-
+  } catch (error) {
+    console.error("❌ IT ERROR:", error);
+    alert(error.msg || "Server error");
+  }
+};
   return (
     <>
       <div style={styles.iconWrapper}>

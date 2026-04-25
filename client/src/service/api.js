@@ -5,7 +5,7 @@ import {
   SERVICE_URLS,
 } from "../constants/config.js";
 
-const API_URL = "itsm-5wln.vercel.app";
+const API_URL = "http://localhost:5000";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
